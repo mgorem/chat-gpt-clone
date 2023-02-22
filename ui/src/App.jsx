@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+
 import send from "./assets/send.svg";
 import user from "./assets/user.png";
 import bot from "./assets/bot.png";
@@ -13,15 +15,70 @@ function App() {
   const [input, setInput] = useState("");
   const [posts, setPosts] = useState([]);
 
-  const onSubmit = () => {
-    if (input.trim() === "") return;
-    upDatePosts(input);
+  useEffect(() => {
+    document.querySelector(".layout").scrollTop =
+      document.querySelector(".layout").scrollHeight;
+  }, [posts]);
+
+  const fetchBotResponse = async () => {
+    const { data } = await axios.post(
+      "http://localhost:4000",
+      { input },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return data;
   };
 
-  const upDatePosts = (post) => {
-    setPosts((prevState) => {
-      return [...prevState, { type: "user", post: post }];
+  const onSubmit = () => {
+    if (input.trim() === "") return;
+    updatePosts(input);
+    updatePosts("Loading...", false, true);
+    setInput("");
+    fetchBotResponse().then((res) => {
+      console.log(res);
+      updatePosts(res.bot.trim(), true);
     });
+  };
+
+  const autoTypingBotResponse = (text) => {
+    let index = 0;
+    let interval = setInterval(() => {
+      if (index < text.length) {
+        setPosts((prevState) => {
+          let lastItem = prevState.pop();
+          if (lastItem.type !== "bot") {
+            prevState.push({
+              type: "bot",
+              post: text.charAt(index - 1),
+            });
+          } else {
+            prevState.push({
+              type: "bot",
+              post: lastItem.post + text.charAt(index - 1),
+            });
+          }
+          return [...prevState];
+        });
+        index++;
+      } else {
+        clearInterval(interval);
+      }
+    });
+  };
+
+  const updatePosts = (post, isBot, isLoaidng) => {
+    if (isBot) {
+      autoTypingBotResponse(post);
+    } else {
+      setPosts((prevState) => {
+        return [...prevState, { type: isLoaidng ? "loading" : "user", post }];
+      });
+    }
   };
 
   const onKeyUp = (e) => {
@@ -68,6 +125,7 @@ function App() {
 
       <footer>
         <input
+          value={input}
           type="text"
           placeholder="Ask Anything..."
           className="composebar"
